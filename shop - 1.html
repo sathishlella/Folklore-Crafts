@@ -1,0 +1,602 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <title>Folklore Crafts</title>
+  <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
+  <meta name="description" content="A single-file demo showing a Mont-Fort-style 3D scroll experience adapted for a Mexican goods store (clothes, shoes, dresses, jewelry, artesanías).">
+  <style>
+    :root{
+      --bg:#0b0f14;
+      --ink:#e9f2ff;
+      --muted:#94a3b8;
+      --brand:#ff4f3c;           /* chile rojo */
+      --brand-2:#19c37d;         /* nopal/verde */
+      --brand-3:#ffb800;         /* marigold */
+      --card:rgba(255,255,255,.06);
+      --stroke:rgba(255,255,255,.10);
+      --shadow:0 10px 30px rgba(0,0,0,.35);
+      --radius:18px;
+    }
+    @media (prefers-color-scheme: light){
+      :root{ --bg:#f7fafc; --ink:#0b1220; --muted:#4b5563; --card:rgba(0,0,0,.04); --stroke:rgba(7,7,33,.08); }
+    }
+    *{box-sizing:border-box}
+    html,body{height:100%;scroll-behavior:smooth}
+    body{
+      margin:0;
+      font:16px/1.5 system-ui,-apple-system,Segoe UI,Roboto,Inter,Helvetica,Arial,sans-serif;
+      color:var(--ink);
+      background:var(--bg);
+      overflow-y: auto;
+      scroll-snap-type: y mandatory;
+    }
+    /* 3D canvas sits behind everything */
+    #stage{
+      position:fixed; inset:0; z-index:-1; display:block; width:100%; height:100%;
+      background:radial-gradient(1000px 600px at 70% 20%, #142235 0%, #0b0f14 70%);
+    }
+
+    /* Header / topbar */
+    .topbar{
+      position:fixed; top:0; left:0; right:0; z-index:5; padding:14px clamp(12px,3vw,32px);
+      display:flex; gap:16px; align-items:center; justify-content:space-between;
+      backdrop-filter:saturate(120%) blur(10px);
+      background:linear-gradient(180deg, rgba(10,12,16,.65), rgba(10,12,16,.25));
+      border-bottom:1px solid var(--stroke);
+    }
+    .brand{
+      display:flex; align-items:center; gap:12px; letter-spacing:.3px; font-weight:700;
+    }
+    .brand .logo{
+      width:34px;height:34px;border-radius:10px; background:
+        conic-gradient(from 0turn,#ff4f3c,#ffb800,#19c37d,#2680eb,#ff4f3c);
+      box-shadow:0 6px 18px rgba(0,0,0,.35), inset 0 0 1px rgba(255,255,255,.4);
+    }
+    .nav{display:flex; gap:12px; flex-wrap:wrap}
+    .chip{
+      padding:8px 12px; border:1px solid var(--stroke); border-radius:999px;
+      color:var(--ink); background:rgba(255,255,255,.04); text-decoration:none;
+      transition:.25s ease; font-weight:600; letter-spacing:.2px; box-shadow:var(--shadow);
+    }
+    .chip:hover{ transform:translateY(-2px); background:rgba(255,255,255,.08) }
+    .toggles{display:flex; gap:8px; align-items:center; flex-wrap:wrap}
+    .toggle{
+      border:1px solid var(--stroke); background:var(--card); color:var(--ink);
+      border-radius:999px; padding:8px 12px; cursor:pointer; font-weight:600;
+    }
+
+    /* Panels */
+    .panel{
+      min-height:100vh; padding:calc(70px + 6vh) clamp(16px,4vw,56px) 14vh;
+      display:grid; grid-template-columns: 1.1fr .9fr; gap: clamp(16px,4vw,48px);
+      align-items:center; position:relative; scroll-snap-align:start;
+    }
+    .panel .lead{ font-size: clamp(32px, 5vw, 64px); font-weight:900; line-height:1.05; letter-spacing:-.02em; margin:4px 0 12px}
+    .panel .sub{ font-size: clamp(16px,1.2vw,20px); color:var(--muted); margin:0 0 22px}
+    .cta{ display:flex; gap:12px; flex-wrap:wrap }
+    .btn{
+      --btn:var(--brand);
+      background:linear-gradient(180deg, color-mix(in srgb, var(--btn) 92%, white 8%), var(--btn));
+      color:#0b0f14; border:none; padding:12px 16px; border-radius:12px; font-weight:800;
+      box-shadow:0 8px 24px rgba(255,79,60,.35); cursor:pointer; transition:.25s ease
+    }
+    .btn.alt{ --btn:#ffffff; background:#fff; box-shadow:0 8px 24px rgba(255,255,255,.2) }
+    .btn:hover{ transform:translateY(-2px) }
+    .stack{ display:grid; gap:12px }
+    .grid{
+      display:grid; grid-template-columns: repeat(2, minmax(0,1fr)); gap:12px;
+    }
+    .card{
+      background:linear-gradient(180deg, rgba(255,255,255,.08), rgba(255,255,255,.02));
+      border:1px solid var(--stroke); border-radius:var(--radius); padding:14px; box-shadow:var(--shadow);
+    }
+    .card h4{margin:4px 0 6px}
+    .price{ color:var(--brand-3); font-weight:900 }
+
+    .badge{
+      position:absolute; right:14px; top:14px; background:rgba(0,0,0,.6);
+      color:#fff; font-size:12px; padding:6px 8px; border-radius:999px; border:1px solid rgba(255,255,255,.18)
+    }
+
+    /* Responsive */
+    @media (max-width: 980px){
+      .panel{ grid-template-columns: 1fr; padding-bottom:22vh }
+      .grid{ grid-template-columns: 1fr 1fr }
+    }
+    @media (max-width: 640px){
+      .grid{ grid-template-columns: 1fr }
+    }
+
+    /* Reduced motion cleanups */
+    @media (prefers-reduced-motion: reduce){
+      *{ animation-duration:.001ms !important; animation-iteration-count:1 !important; transition-duration:.001ms !important; scroll-behavior:auto }
+      .chip:hover,.btn:hover{ transform:none }
+    }
+  </style>
+
+  <!-- GSAP for scroll-based camera moves -->
+  <script src="https://cdn.jsdelivr.net/npm/gsap@3.12.5/dist/gsap.min.js" crossorigin="anonymous"></script>
+  <script src="https://cdn.jsdelivr.net/npm/gsap@3.12.5/dist/ScrollTrigger.min.js" crossorigin="anonymous"></script>
+  <!-- THREE.js -->
+  <script src="https://unpkg.com/three@0.160.0/build/three.min.js" crossorigin="anonymous"></script>
+</head>
+<body>
+  <canvas id="stage" aria-hidden="true"></canvas>
+
+  <header class="topbar" role="banner">
+    <div class="brand">
+      <div class="logo" aria-hidden="true"></div>
+      <span>Mercado de México</span>
+    </div>
+    <nav class="nav" aria-label="Primary">
+      <a class="chip" href="#home">Home</a>
+      <a class="chip" href="#clothes">Clothes</a>
+      <a class="chip" href="#shoes">Shoes</a>
+      <a class="chip" href="#dresses">Dresses</a>
+      <a class="chip" href="#jewelry">Jewelry</a>
+      <a class="chip" href="#artesanias">Artesanías</a>
+    </nav>
+    <div class="toggles">
+      <button id="lowSpecBtn" class="toggle" aria-pressed="false" title="Toggle low-spec mode">Low-Spec: Off</button>
+    </div>
+  </header>
+
+  <!-- PANELS (each maps to a 3D “world”) -->
+  <section id="home" class="panel" data-world="home" aria-label="Home">
+    <div>
+      <h1 class="lead">Folklore Crafts</h1>
+      <p class="sub">Folklore Crafts — discover by vibe, shop in a tap.</p>
+      <div class="cta">
+        <a class="btn" href="#clothes">Shop Clothes</a>
+        <a class="btn alt" href="#artesanias">Explore Artesanías</a>
+      </div>
+    </div>
+    <div class="stack">
+      <div class="card">
+        <h4>3D Highlights</h4>
+        <ul>
+          <li>Scene-to-scene camera moves</li>
+          <li>Foggy veil transitions</li>
+          <li>Reduced-motion &amp; Low-spec paths</li>
+        </ul>
+      </div>
+      <div class="card">
+        <h4>Performance Guardrails</h4>
+        <ul>
+          <li>&lt; 3MB initial 3D payload</li>
+          <li>GPU-aware animation throttle</li>
+          <li>SSR-friendly content layers</li>
+        </ul>
+      </div>
+    </div>
+  </section>
+
+  <section id="clothes" class="panel" data-world="clothes" aria-label="Clothes">
+    <div>
+      <span class="badge">Textile Valley</span>
+      <h2 class="lead">Clothes</h2>
+      <p class="sub">Breathable basics and embroidered shirts inspired by Otomí textiles.</p>
+      <div class="cta">
+        <a class="btn" href="#clothes-grid">Shop Clothes</a>
+        <a class="btn alt" href="#home">Back Home</a>
+      </div>
+    </div>
+    <div id="clothes-grid" class="grid">
+      <div class="card"><h4>Guayabera Linen</h4><div class="price">$49</div></div>
+      <div class="card"><h4>Otomí Tee</h4><div class="price">$29</div></div>
+      <div class="card"><h4>Serape Hoodie</h4><div class="price">$59</div></div>
+      <div class="card"><h4>Puebla Blouse</h4><div class="price">$39</div></div>
+    </div>
+  </section>
+
+  <section id="shoes" class="panel" data-world="shoes" aria-label="Shoes">
+    <div>
+      <span class="badge">Callejón de Piedra</span>
+      <h2 class="lead">Shoes</h2>
+      <p class="sub">From huaraches to street-ready sneakers—step into comfort.</p>
+      <div class="cta">
+        <button class="btn">Shop Shoes</button>
+        <a class="btn alt" href="#home">Back Home</a>
+      </div>
+    </div>
+    <div class="grid">
+      <div class="card"><h4>Leather Huarache</h4><div class="price">$69</div></div>
+      <div class="card"><h4>City Sneaker</h4><div class="price">$89</div></div>
+      <div class="card"><h4>Festival Sandal</h4><div class="price">$54</div></div>
+      <div class="card"><h4>Suede Boot</h4><div class="price">$129</div></div>
+    </div>
+  </section>
+
+  <section id="dresses" class="panel" data-world="dresses" aria-label="Dresses">
+    <div>
+      <span class="badge">Fiesta Plaza</span>
+      <h2 class="lead">Dresses</h2>
+      <p class="sub">Flowy silhouettes with ribbon details and modern fits.</p>
+      <div class="cta">
+        <button class="btn">Shop Dresses</button>
+        <a class="btn alt" href="#home">Back Home</a>
+      </div>
+    </div>
+    <div class="grid">
+      <div class="card"><h4>Talavera Midi</h4><div class="price">$79</div></div>
+      <div class="card"><h4>Ribbon Sundress</h4><div class="price">$69</div></div>
+      <div class="card"><h4>Plaza Maxi</h4><div class="price">$99</div></div>
+      <div class="card"><h4>Embroidered Shift</h4><div class="price">$89</div></div>
+    </div>
+  </section>
+
+  <section id="jewelry" class="panel" data-world="jewelry" aria-label="Jewelry">
+    <div>
+      <span class="badge">Talavera Courtyard</span>
+      <h2 class="lead">Jewelry</h2>
+      <p class="sub">Hand-finished metals with sun-kissed shine.</p>
+      <div class="cta">
+        <button class="btn">Shop Jewelry</button>
+        <a class="btn alt" href="#home">Back Home</a>
+      </div>
+    </div>
+    <div class="grid">
+      <div class="card"><h4>Sunburst Pendant</h4><div class="price">$59</div></div>
+      <div class="card"><h4>Talavera Hoop</h4><div class="price">$49</div></div>
+      <div class="card"><h4>Nopal Ring</h4><div class="price">$39</div></div>
+      <div class="card"><h4>Opal Bracelet</h4><div class="price">$69</div></div>
+    </div>
+  </section>
+
+  <section id="artesanias" class="panel" data-world="artesanias" aria-label="Artesanías">
+    <div>
+      <span class="badge">Mercado Aisle</span>
+      <h2 class="lead">Artesanías &amp; More</h2>
+      <p class="sub">Talavera, lotería, papel picado—crafted with heart.</p>
+      <div class="cta">
+        <button class="btn">Shop All Mexican</button>
+        <a class="btn alt" href="#home">Back Home</a>
+      </div>
+    </div>
+    <div class="grid">
+      <div class="card"><h4>Talavera Vase</h4><div class="price">$119</div></div>
+      <div class="card"><h4>Lotería Set</h4><div class="price">$24</div></div>
+      <div class="card"><h4>Papel Picado</h4><div class="price">$12</div></div>
+      <div class="card"><h4>Serape Throw</h4><div class="price">$69</div></div>
+    </div>
+  </section>
+
+  <script>
+    // --- Preferences ---
+    const REDUCED_MOTION = window.matchMedia('(prefers-reduced-motion: reduce)').matches;
+    let LOW_SPEC = false;
+
+    // --- THREE.js scene setup ---
+    const canvas = document.getElementById('stage');
+    const renderer = new THREE.WebGLRenderer({ canvas, antialias: true, powerPreference:'high-performance' });
+    renderer.setSize(window.innerWidth, window.innerHeight);
+    renderer.setPixelRatio(Math.min(devicePixelRatio, 2));
+    renderer.setClearColor(0x0b0f14, 1);
+
+    const scene  = new THREE.Scene();
+    scene.fog    = new THREE.FogExp2(0x0b0f14, 0.035);
+
+    const camera = new THREE.PerspectiveCamera(55, window.innerWidth / window.innerHeight, 0.1, 200);
+    camera.position.set(6, 3.3, 8);
+    const cameraTarget = new THREE.Vector3(0, 1.2, 0);
+
+    // Lights
+    const hemi = new THREE.HemisphereLight(0xfff2e0, 0x0b1020, 0.65);
+    const key  = new THREE.DirectionalLight(0xffffff, 0.8);
+    key.position.set(6, 8, 6);
+    key.castShadow = false;
+    scene.add(hemi, key);
+
+    // Subtle ground (unobtrusive)
+    const ground = new THREE.Mesh(
+      new THREE.CylinderGeometry(20, 20, 0.1, 64),
+      new THREE.MeshStandardMaterial({ color:0x0f1720, metalness:0.1, roughness:0.9 })
+    );
+    ground.position.y = -1.25;
+    scene.add(ground);
+
+    // --- Utility: create a minimal “veil” particle layer (papel-picado vibe) ---
+    function createConfetti(count = 450){
+      const geo = new THREE.BufferGeometry();
+      const positions = new Float32Array(count * 3);
+      const sizes = new Float32Array(count);
+      for(let i=0;i<count;i++){
+        positions[i*3+0] = (Math.random()-0.5)*18;
+        positions[i*3+1] = Math.random()*8 + 0.2;
+        positions[i*3+2] = (Math.random()-0.5)*18;
+        sizes[i] = Math.random()*2.5 + 0.6;
+      }
+      geo.setAttribute('position', new THREE.BufferAttribute(positions,3));
+      geo.setAttribute('aSize', new THREE.BufferAttribute(sizes,1));
+      const material = new THREE.PointsMaterial({
+        color:0xffb800, size:0.12, sizeAttenuation:true, transparent:true, opacity:0.9
+      });
+      const pts = new THREE.Points(geo, material);
+      pts.renderOrder = -1;
+      return pts;
+    }
+    const confetti = createConfetti(360);
+    scene.add(confetti);
+
+    // --- Worlds (simple, stylized primitives per category) ---
+    const worlds = {};
+
+    // HOME: low-poly mountain + sun
+    (function(){
+      const g = new THREE.IcosahedronGeometry(2.2, 0);
+      const m = new THREE.MeshStandardMaterial({ color:0x17314f, roughness:0.9, metalness:0.05, flatShading:true });
+      const mountain = new THREE.Mesh(g, m);
+      mountain.position.set(0, 0.2, 0);
+
+      const sun = new THREE.Mesh(
+        new THREE.SphereGeometry(0.6, 32, 16),
+        new THREE.MeshStandardMaterial({ color:0xffb800, emissive:0xffb800, emissiveIntensity: 0.5, roughness:0.4 })
+      );
+      sun.position.set(-2.5, 3.2, -1.4);
+
+      const group = new THREE.Group();
+      group.add(mountain, sun);
+      worlds.home = group;
+      scene.add(group);
+    })();
+
+    // CLOTHES: waving fabric
+    (function(){
+      const seg = 48;
+      const geometry = new THREE.PlaneGeometry(5.5, 3.5, seg, seg);
+      const material = new THREE.MeshStandardMaterial({
+        color:0x206b5b, roughness:0.6, metalness:0.05, side:THREE.DoubleSide
+      });
+      const fabric = new THREE.Mesh(geometry, material);
+      fabric.rotation.x = -Math.PI/3;
+      fabric.position.set(0, 0.8, 0);
+
+      const group = new THREE.Group();
+      group.add(fabric);
+      group.userData = { fabric, seg };
+      group.visible = false;
+      worlds.clothes = group;
+      scene.add(group);
+    })();
+
+    // SHOES: cobblestone grid
+    (function(){
+      const group = new THREE.Group();
+      const geo = new THREE.CylinderGeometry(0.18, 0.18, 0.25, 8);
+      const mat = new THREE.MeshStandardMaterial({ color:0x2b3f57, roughness:0.95, metalness:0.02, flatShading:true });
+      const count = 9; const gap = 0.65;
+      for(let x=-count;x<=count;x++){
+        for(let z=-count;z<=count;z++){
+          if (Math.random() < 0.25) continue;
+          const c = new THREE.Mesh(geo, mat);
+          c.position.set(x*gap, -1.0, z*gap);
+          c.rotation.x = Math.random()*0.2;
+          c.rotation.z = Math.random()*0.2;
+          group.add(c);
+        }
+      }
+      group.visible = false;
+      worlds.shoes = group;
+      scene.add(group);
+    })();
+
+    // DRESSES: swirling ribbon (torus knot)
+    (function(){
+      const g = new THREE.TorusKnotGeometry(1.1, 0.34, 160, 24);
+      const m = new THREE.MeshStandardMaterial({ color:0xff4f3c, roughness:0.45, metalness:0.35 });
+      const knot = new THREE.Mesh(g, m);
+      knot.position.set(0, 0.8, 0);
+
+      const group = new THREE.Group();
+      group.add(knot);
+      group.visible = false;
+      worlds.dresses = group;
+      scene.add(group);
+    })();
+
+    // JEWELRY: shiny spheres / rings
+    (function(){
+      const group = new THREE.Group();
+      const gold = new THREE.MeshStandardMaterial({ color:0xffd36f, metalness:0.85, roughness:0.2 });
+      const ring = new THREE.Mesh(new THREE.TorusGeometry(1.2, 0.18, 24, 128), gold);
+      ring.rotation.x = Math.PI/2.1;
+      ring.position.y = 0.9;
+
+      const gem = new THREE.Mesh(new THREE.SphereGeometry(0.48, 48, 32),
+        new THREE.MeshStandardMaterial({ color:0xadd8ff, metalness:0.2, roughness:0.05, envMapIntensity: 1 })
+      );
+      gem.position.set(0, 1.1, 0.1);
+
+      group.add(ring, gem);
+      group.visible = false;
+      worlds.jewelry = group;
+      scene.add(group);
+    })();
+
+    // ARTESANÍAS: pottery cylinders
+    (function(){
+      const group = new THREE.Group();
+      const clayA = new THREE.MeshStandardMaterial({ color:0xad6b4a, roughness:0.9, metalness:0.05 });
+      const clayB = new THREE.MeshStandardMaterial({ color:0xc78e67, roughness:0.85, metalness:0.03 });
+      for(let i=0;i<6;i++){
+        const h = 0.9 + Math.random()*0.8;
+        const r1 = 0.35 + Math.random()*0.25;
+        const r2 = r1 * (0.75+Math.random()*0.5);
+        const pot = new THREE.Mesh(new THREE.CylinderGeometry(r1, r2, h, 24, 1), i%2?clayA:clayB);
+        pot.position.set((Math.random()-0.5)*3.2, -1.0 + h/2, (Math.random()-0.5)*2.6);
+        group.add(pot);
+      }
+      group.visible = false;
+      worlds.artesanias = group;
+      scene.add(group);
+    })();
+
+    // World camera + palette targets
+    const targets = {
+      home:      { cam:[6,3.3,8], look:[0,1.2,0], bg:0x0b0f14, fog:0x0b0f14, hemi:0xfff2e0 },
+      clothes:   { cam:[4.3,2.2,5.4], look:[0,0.7,0], bg:0x0d1a17, fog:0x10211c, hemi:0xc8ffe6 },
+      shoes:     { cam:[7.2,3.0,6.5], look:[0,-0.4,0], bg:0x0d1721, fog:0x0e1b24, hemi:0xe6f1ff },
+      dresses:   { cam:[5.0,2.4,5.6], look:[0,0.8,0], bg:0x1a0e10, fog:0x200f12, hemi:0xffe8e4 },
+      jewelry:   { cam:[5.8,2.2,5.2], look:[0,1.0,0], bg:0x111318, fog:0x15161b, hemi:0xfffbec },
+      artesanias:{ cam:[6.4,2.6,6.3], look:[0,-0.1,0], bg:0x12100d, fog:0x151310, hemi:0xfff0e1 }
+    };
+
+    // Helper to tween colors (bg + fog + hemi)
+    const tmpFrom = new THREE.Color(), tmpTo = new THREE.Color(), tmpNow = new THREE.Color();
+    function tweenPalette(fromHex, toHex, onUpdate){
+      tmpFrom.set(fromHex); tmpTo.set(toHex);
+      const state = { t:0 };
+      gsap.to(state, {
+        t:1, duration: REDUCED_MOTION? 0.15 : 1.1, ease:"power2.out",
+        onUpdate: () => { tmpNow.copy(tmpFrom).lerp(tmpTo, state.t); onUpdate(tmpNow) }
+      });
+    }
+
+    // Activate a “world” (called on intersection / nav)
+    let currentWorld = 'home';
+    function gotoWorld(name){
+      if (!targets[name] || name === currentWorld) return;
+      const t = targets[name];
+      const d = REDUCED_MOTION ? 0.2 : 1.0;
+
+      // camera move
+      gsap.to(camera.position, { x:t.cam[0], y:t.cam[1], z:t.cam[2], duration:d, ease:"power2.inOut" });
+      gsap.to(cameraTarget,    { x:t.look[0],y:t.look[1],z:t.look[2], duration:d, ease:"power2.inOut" });
+
+      // palette
+      const bgFrom = renderer.getClearColor(new THREE.Color()).getHex();
+      tweenPalette(bgFrom, t.bg, (col)=>{ renderer.setClearColor(col.getHex(), 1); scene.background = col });
+
+      const fogFrom = scene.fog.color.getHex();
+      tweenPalette(fogFrom, t.fog, (col)=>{ scene.fog.color.copy(col) });
+
+      gsap.to(hemi.color, { r: new THREE.Color(t.hemi).r, g:new THREE.Color(t.hemi).g, b:new THREE.Color(t.hemi).b, duration:d });
+
+      // visibility crossfade
+      Object.entries(worlds).forEach(([key, grp])=>{
+        const vis = (key === name);
+        if (!grp.materialsFaded){
+          grp.traverse(o=>{
+            if (o.isMesh) { o.material.transparent = true; o.material.opacity = (key===currentWorld)?1:0; }
+          });
+          grp.materialsFaded = true;
+        }
+        gsap.to({ val: vis?0:1 }, {
+          val: vis?1:0, duration: d, ease:"power2.out",
+          onUpdate:function(){
+            grp.traverse(o=>{ if (o.isMesh) o.material.opacity = this.targets()[0].val; });
+          },
+          onStart: ()=>{ grp.visible = true },
+          onComplete: ()=>{ grp.visible = vis }
+        });
+      });
+
+      currentWorld = name;
+    }
+
+    // Intersection observer to trigger worlds when panels come into view
+    const panels = [...document.querySelectorAll('.panel')];
+    const panelById = Object.fromEntries(panels.map(p=>[p.id, p]));
+    const io = new IntersectionObserver((entries)=>{
+      entries.forEach(e=>{
+        if (e.isIntersecting && e.intersectionRatio > 0.55){
+          gotoWorld(e.target.dataset.world);
+          history.replaceState(null, '', '#'+e.target.id);
+        }
+      });
+    }, { threshold:[0.55, 0.75]});
+    panels.forEach(p=>io.observe(p));
+
+    // Nav chips smooth scroll works via anchors; ensure world switch if user clicks quickly
+    document.querySelectorAll('.nav a').forEach(a=>{
+      a.addEventListener('click', (ev)=>{
+        const id = (a.getAttribute('href')||'').replace('#','');
+        const tgt = panelById[id];
+        if (tgt){ gotoWorld(tgt.dataset.world); }
+      });
+    });
+
+    // Low-spec toggle
+    const lowBtn = document.getElementById('lowSpecBtn');
+    lowBtn.addEventListener('click', ()=>{
+      LOW_SPEC = !LOW_SPEC;
+      lowBtn.setAttribute('aria-pressed', LOW_SPEC ? 'true' : 'false');
+      lowBtn.textContent = 'Low-Spec: ' + (LOW_SPEC ? 'On' : 'Off');
+    });
+
+    // Resize
+    window.addEventListener('resize', ()=>{
+      renderer.setSize(window.innerWidth, window.innerHeight);
+      camera.aspect = window.innerWidth / window.innerHeight;
+      camera.updateProjectionMatrix();
+    });
+
+    // Animation loop
+    let t0 = performance.now();
+    let frameSkips = 0;
+    function tick(now){
+      const dt = Math.min(0.033, (now - t0)/1000);
+      t0 = now;
+
+      // throttle if low-spec: render every 2nd/3rd frame
+      if (LOW_SPEC){
+        frameSkips = (frameSkips + 1) % 2; // ~30fps
+        if (frameSkips !== 0) { requestAnimationFrame(tick); return; }
+      }
+
+      // confetti drift
+      const pos = confetti.geometry.attributes.position;
+      for(let i=0;i<pos.count;i++){
+        let y = pos.getY(i) + (LOW_SPEC ? 0.01 : 0.02) * (Math.sin((now*0.001 + i)*0.5)*0.3 + 0.7);
+        if (y > 8.5) y = 0.2;
+        pos.setY(i, y);
+      }
+      pos.needsUpdate = true;
+
+      // world-specific motion
+      if (!REDUCED_MOTION){
+        // home: gentle mountain yaw
+        if (worlds.home.visible){
+          worlds.home.rotation.y += 0.12 * dt;
+        }
+        // clothes: wave fabric
+        if (worlds.clothes.visible){
+          const fabric = worlds.clothes.userData.fabric;
+          const arr = fabric.geometry.attributes.position.array;
+          const amplitude = LOW_SPEC ? 0.05 : 0.12;
+          const speed = LOW_SPEC ? 0.7 : 1.2;
+          for (let i=0; i<arr.length; i+=3){
+            const x = arr[i], y = arr[i+1];
+            arr[i+2] = Math.sin((x*1.2 + y*1.5) + now*0.0015*speed) * amplitude;
+          }
+          fabric.geometry.attributes.position.needsUpdate = true;
+          fabric.geometry.computeVertexNormals();
+        }
+        // shoes: slight camera bob / lights
+        if (worlds.shoes.visible){
+          key.intensity = 0.8 + Math.sin(now*0.001)*0.05;
+        }
+        // dresses: spin knot
+        if (worlds.dresses.visible){
+          worlds.dresses.rotation.y += 0.6 * dt;
+        }
+        // jewelry: shimmer
+        if (worlds.jewelry.visible){
+          hemi.intensity = 0.65 + Math.sin(now*0.0016)*0.15;
+        }
+      }
+
+      camera.lookAt(cameraTarget);
+      renderer.render(scene, camera);
+      requestAnimationFrame(tick);
+    }
+    requestAnimationFrame(tick);
+
+    // Start on the hash (or home)
+    const initial = (location.hash||'#home').replace('#','');
+    const initialPanel = panelById[initial] ? initial : 'home';
+    gotoWorld(panelById[initialPanel].dataset.world);
+  </script>
+</body>
+</html>
